@@ -1,0 +1,28 @@
+{
+  "name": "npm-package-update",
+  "version": "1.0.0",
+  "description": "",
+  "author": "Nischay Pro <NischayPro@gmail.com> (https://github.com/Nischay-Pro/npm-package-update)",
+  "license": "ISC",
+  "repository": "https://github.com/Nischay-Pro/npm-package-update.git",
+  "scripts": {
+    "start": "probot run ./index.js",
+    "test": "jest && standard"
+  },
+  "dependencies": {
+    "probot": "^6.0.0"
+  },
+  "devDependencies": {
+    "jest": "^22.4.3",
+    "smee-client": "^1.0.1",
+    "standard": "^11.0.1"
+  },
+  "engines": {
+    "node": ">= 8.3.0"
+  },
+  "standard": {
+    "env": [
+      "jest"
+    ]
+  }
+}
