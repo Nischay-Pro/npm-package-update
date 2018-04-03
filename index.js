@@ -25,57 +25,44 @@ module.exports = (robot) => {
 			});
 			if (process.length !== 0) {
 				Promise.all(process).then(result => {
+					let pathDirectory = '';
 					if (result.length == 1) {
-						robot.log('Warning missing yarn.lock file. Will attempt to generate it.');
-						exec('yarn install', {
-							cwd: path.join('tmp', context.repo().owner, context.repo().repo, result.path)
-						}, (err, stdout, stderr) => {
-							if (err) {
-								robot.log('Failed');
-								robot.log(err);
-								return;
-							}
-							robot.log(`stdout: ${stdout}`);
-							robot.log(`stderr: ${stderr}`);
-							robot.log('Checking for outdated packages');
-							exec('yarn outdated', {
-								cwd: path.join('tmp', context.repo().owner, context.repo().repo, result.path)
-							}, (err, stdout, stderr) => {
-								if (err) {
-									robot.log('Failed');
-									robot.log(err);
-									return;
-								}
-								robot.log(`stdout: ${stdout}`);
-								robot.log(`stderr: ${stderr}`);
-							});
-						});
+						robot.log('Warning missing yarn.lock file. Will attempt to generate lockfile.');
+						pathDirectory = path.join(appPath, 'tmp', context.repo().owner, context.repo().repo, result.path);
 					} else {
 						robot.log('Processing Yarn Lockfile and Package.json.');
-						exec('yarn install', {
-							cwd: path.join('tmp', context.repo().owner, context.repo().repo, result[0].path)
-						}, (err, stdout, stderr) => {
-							if (err) {
-								robot.log('Failed');
-								robot.log(err);
-								return;
-							}
-							robot.log(`stdout: ${stdout}`);
-							robot.log(`stderr: ${stderr}`);
-							robot.log('Checking for outdated packages');
-							exec('yarn outdated', {
-								cwd: path.join('tmp', context.repo().owner, context.repo().repo, result[0].path)
-							}, (err, stdout, stderr) => {
-								if (err) {
-									robot.log('Failed');
-									robot.log(err);
-									return;
-								}
-								robot.log(`stdout: ${stdout}`);
-								robot.log(`stderr: ${stderr}`);
-							});
-						});
+						pathDirectory = path.join(appPath, 'tmp', context.repo().owner, context.repo().repo, result[0].path);
 					}
+					exec('yarn install', {
+						cwd: pathDirectory
+					}, (err, stdout, stderr) => {
+						if (err) {
+							robot.log(`Error: ${err}`);
+							return;
+						} else if (stderr) {
+							robot.log(`Error: ${stderr}`);
+							return;
+						}
+						robot.log('Checking for outdated packages');
+						exec('yarn outdated', {
+							cwd: pathDirectory
+						}, (err, stdout, stderr) => {
+							if (stdout.toString().includes('info Color legend :')) {
+								const matcher = new RegExp('(Package)([\\S\\s]*)(?=Done in)');
+								let result = matcher.exec(stdout);
+								robot.log('Found outdated packages');
+								
+								context.github.issues.createComment(context.issue({
+									body: result[0]
+								}));
+							} else {
+								robot.log('Everything is up to date.');
+								context.github.issues.createComment(context.issue({
+									body: 'Everything is up to date.'
+								}));
+							}
+						});
+					});
 				}).catch((err) => {
 					robot.log(err);
 				});
