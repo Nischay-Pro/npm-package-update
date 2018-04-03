@@ -36,25 +36,50 @@ module.exports = (robot) => {
 					exec('yarn install', {
 						cwd: pathDirectory
 					}, (err, stdout, stderr) => {
-						if (err) {
-							robot.log(`Error: ${err}`);
+						if (err.length != undefined) {
+							robot.log(`Error1a: ${err}`);
 							return;
-						} else if (stderr) {
-							robot.log(`Error: ${stderr}`);
+						}
+						if (stderr.length > 0) {
+							robot.log(`Error1b: ${stderr}`);
 							return;
 						}
 						robot.log('Checking for outdated packages');
 						exec('yarn outdated', {
 							cwd: pathDirectory
-						}, (err, stdout, stderr) => {
-							if (stdout.toString().includes('info Color legend :')) {
+						}, (err2, stdout2, stderr2) => {
+							if (err2.length != undefined) {
+								robot.log(`Error2a: ${err2}`);
+								return;
+							} else if (stderr2.length > 0) {
+								robot.log(`Error2b: ${stderr2}`);
+								return;
+							} else if (stdout2.toString().includes('info Color legend :')) {
 								const matcher = new RegExp('(Package)([\\S\\s]*)(?=Done in)');
-								let result = matcher.exec(stdout);
+								let result = matcher.exec(stdout2);
 								robot.log('Found outdated packages');
-								
+								let packages = result[0].split(/\r?\n/);
+								packages.shift();
+								packages.pop();
+								let packagelist = [];
+								packages.forEach(element => {
+									let data = element.replace(/  +/g, ' ');
+									data = data.split(' ');
+									let stuff = {
+										name: data[0],
+										installed: data[1],
+										wanted: data[2],
+										latest: data[3],
+										type: data[4],
+										url: `[${data[0]}](${data[5]})`
+									};
+									packagelist.push(stuff);
+								});
+								let val = arrayToTable(packagelist, ['Name of Package', 'Version Installed', 'Version Wanted', 'Latest Version', 'Type of Package', 'URL'], 'center');
 								context.github.issues.createComment(context.issue({
-									body: result[0]
+									body: val
 								}));
+								robot.log('Posted on GitHub');
 							} else {
 								robot.log('Everything is up to date.');
 								context.github.issues.createComment(context.issue({
@@ -101,3 +126,31 @@ const downloadFile = (context, element, robot) => {
 		}
 	});
 };
+
+function arrayToTable(array, columns, alignment = 'center') {
+	let table = '';
+	let separator = {
+		'left': ':---',
+		'right': '---:',
+		'center': '---'
+	};
+
+	let cols = columns;
+
+	table += cols.join(' | ');
+	table += '\r\n';
+
+	table += cols.map(function () {
+		return separator[alignment] || separator.center;
+	}).join(' | ');
+	table += '\r\n';
+
+	array.forEach((item) => {
+		let result = [];
+		for (let key in item) {
+			result.push(item[key]);
+		}
+		table += result.join(' | ') + '\r\n';
+	});
+	return table;
+}
