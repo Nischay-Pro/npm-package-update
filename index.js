@@ -36,7 +36,7 @@ module.exports = (robot) => {
 					exec('yarn install', {
 						cwd: pathDirectory
 					}, (err, stdout, stderr) => {
-						if (err.length != undefined) {
+						if (err != undefined && err != null) {
 							robot.log(`Error1a: ${err}`);
 							return;
 						}
@@ -75,15 +75,18 @@ module.exports = (robot) => {
 									};
 									packagelist.push(stuff);
 								});
-								let val = arrayToTable(packagelist, ['Name of Package', 'Version Installed', 'Version Wanted', 'Latest Version', 'Type of Package', 'URL'], 'center');
+								let val = '';
+								val += `We found **${packagelist.length}** outdated package(s) in this Pull Request.\r\n\r\n`;
+								val += arrayToTable(packagelist, ['Name of Package', 'Version Installed', 'Version Wanted', 'Latest Version', 'Type of Package', 'URL'], 'center');
+								val += '\r\n If you would like the bot to **create a commit** with the **updated** packages, comment `\\update packages` in this Pull Request.';
 								context.github.issues.createComment(context.issue({
 									body: val
 								}));
 								robot.log('Posted on GitHub');
 							} else {
-								robot.log('Everything is up to date.');
+								robot.log('Yaay! Everything is up to date. :clap:');
 								context.github.issues.createComment(context.issue({
-									body: 'Everything is up to date.'
+									body: 'Yaay! Everything is up to date. :clap:'
 								}));
 							}
 						});
