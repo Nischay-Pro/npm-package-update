@@ -28,10 +28,10 @@ module.exports = (robot) => {
 					let pathDirectory = '';
 					if (result.length == 1) {
 						robot.log('Warning missing yarn.lock file. Will attempt to generate lockfile.');
-						pathDirectory = path.join(appPath, 'tmp', context.repo().owner, context.repo().repo, result.path);
+						pathDirectory = path.join(appPath, 'tmp', context.repo().owner, context.repo().repo, context.issue().number.toString(), result.path);
 					} else {
 						robot.log('Processing Yarn Lockfile and Package.json.');
-						pathDirectory = path.join(appPath, 'tmp', context.repo().owner, context.repo().repo, result[0].path);
+						pathDirectory = path.join(appPath, 'tmp', context.repo().owner, context.repo().repo, context.issue().number.toString(), result[0].path);
 					}
 					exec('yarn install', {
 						cwd: pathDirectory
@@ -114,9 +114,9 @@ const downloadFile = (context, element, robot) => {
 				path: dir,
 				url: element.raw_url
 			};
-			mkdirp.sync(path.join(appPath, 'tmp', context.repo().owner, context.repo().repo, file.path));
+			mkdirp.sync(path.join(appPath, 'tmp', context.repo().owner, context.repo().repo, context.issue().number.toString(), file.path));
 			robot.log(`Downloading file: ${file.name}`);
-			let makefile = fs.createWriteStream(path.join('tmp', context.repo().owner, context.repo().repo, file.path, file.name));
+			let makefile = fs.createWriteStream(path.join('tmp', context.repo().owner, context.repo().repo, context.issue().number.toString(), file.path, file.name));
 			https.get(file.url, function (response) {
 				response.pipe(makefile);
 			});
