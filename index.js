@@ -6,6 +6,7 @@ const path = require('path');
 const Promise = require('bluebird');
 const exec = require('child_process').exec;
 const commands = require('probot-commands');
+const rmdir = require('rmdir');
 
 module.exports = (robot) => {
 	robot.on(['pull_request.opened', 'pull_request.reopened'], pullrequest);
@@ -28,8 +29,10 @@ module.exports = (robot) => {
 					return false;
 				else return true;
 			});
+			let removeDirectory = path.join(appPath, 'tmp', context.repo().owner, context.repo().repo, context.issue().number.toString());
 			if (process.length !== 0) {
 				Promise.all(process).then(result => {
+
 					let pathDirectory = '';
 					if (result.length == 1) {
 						robot.log('Warning missing yarn.lock file. Will attempt to generate lockfile.');
@@ -43,23 +46,51 @@ module.exports = (robot) => {
 					}, (err, stdout, stderr) => {
 						if (err != undefined && err != null) {
 							robot.log(`Error1a: ${err}`);
-							return;
+							robot.log('Starting Cleanup');
+							rmdir(removeDirectory, (err) => {
+								if (err) {
+									robot.log('Unable to delete files');
+								}
+								robot.log('Cleaned Up');
+								return;
+							});
 						}
 						if (stderr.length > 0) {
 							robot.log(`Error1b: ${stderr}`);
-							return;
+							robot.log('Starting Cleanup');
+							rmdir(removeDirectory, (err) => {
+								if (err) {
+									robot.log('Unable to delete files');
+								}
+								robot.log('Cleaned Up');
+								return;
+							});
 						}
-						if(shouldUpdate==false){
+						if (shouldUpdate == false) {
 							robot.log('Checking for outdated packages');
 							exec('yarn outdated', {
 								cwd: pathDirectory
 							}, (err2, stdout2, stderr2) => {
 								if (err2.length != undefined) {
 									robot.log(`Error2a: ${err2}`);
-									return;
+									robot.log('Starting Cleanup');
+									rmdir(removeDirectory, (err) => {
+										if (err) {
+											robot.log('Unable to delete files');
+										}
+										robot.log('Cleaned Up');
+										return;
+									});
 								} else if (stderr2.length > 0) {
 									robot.log(`Error2b: ${stderr2}`);
-									return;
+									robot.log('Starting Cleanup');
+									rmdir(removeDirectory, (err) => {
+										if (err) {
+											robot.log('Unable to delete files');
+										}
+										robot.log('Cleaned Up');
+										return;
+									});
 								} else if (stdout2.toString().includes('info Color legend :')) {
 									const matcher = new RegExp('(Package)([\\S\\s]*)(?=Done in)');
 									let result = matcher.exec(stdout2);
@@ -89,15 +120,28 @@ module.exports = (robot) => {
 										body: val
 									}));
 									robot.log('Posted on GitHub');
+									robot.log('Starting Cleanup');
+									rmdir(removeDirectory, (err) => {
+										if (err) {
+											robot.log('Unable to delete files');
+										}
+										robot.log('Cleaned Up');
+									});
 								} else {
 									robot.log('Yaay! Everything is up to date. :clap:');
 									context.github.issues.createComment(context.issue({
 										body: 'Yaay! Everything is up to date. :clap:'
 									}));
+									robot.log('Starting Cleanup');
+									rmdir(removeDirectory, (err) => {
+										if (err) {
+											robot.log('Unable to delete files');
+										}
+										robot.log('Cleaned Up');
+									});
 								}
 							});
-						}
-						else{
+						} else {
 							robot.log('Updating Packages');
 							exec('yarn upgrade', {
 								cwd: pathDirectory
@@ -110,9 +154,9 @@ module.exports = (robot) => {
 									return;
 								} else if (stdout2.toString().includes('success Saved lockfile.')) {
 									robot.log('Uploading new packages');
-									
+
 									let val = '';
-									
+
 									context.github.issues.createComment(context.issue({
 										body: val
 									}));
@@ -123,9 +167,23 @@ module.exports = (robot) => {
 					});
 				}).catch((err) => {
 					robot.log(err);
+					robot.log('Starting Cleanup');
+					rmdir(removeDirectory, (err) => {
+						if (err) {
+							robot.log('Unable to delete files');
+						}
+						robot.log('Cleaned Up');
+					});
 				});
 			} else {
 				robot.log('Did not detect yarn.lock / package.json file');
+				robot.log('Starting Cleanup');
+				rmdir(removeDirectory, (err) => {
+					if (err) {
+						robot.log('Unable to delete files');
+					}
+					robot.log('Cleaned Up');
+				});
 			}
 		} catch (err) {
 			if (err.code !== 404) {
