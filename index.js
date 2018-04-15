@@ -5,12 +5,17 @@ const https = require('follow-redirects').https;
 const path = require('path');
 const Promise = require('bluebird');
 const exec = require('child_process').exec;
+const commands = require('probot-commands');
 
 module.exports = (robot) => {
-	robot.on(['pull_request.opened', 'pull_request.reopened'], receive);
-	async function receive(context) {
+	robot.on(['pull_request.opened', 'pull_request.reopened'], pullrequest);
+	async function pullrequest(context) {
 		// Get all issues for repo with user as creator
 		try {
+			let shouldUpdate = false;
+			commands(robot, 'update-packages', async () => {
+				shouldUpdate = true;
+			});
 			const files = await context.github.pullRequests.getFiles(context.issue());
 			let process = [];
 			files.data.every(element => {
@@ -44,52 +49,77 @@ module.exports = (robot) => {
 							robot.log(`Error1b: ${stderr}`);
 							return;
 						}
-						robot.log('Checking for outdated packages');
-						exec('yarn outdated', {
-							cwd: pathDirectory
-						}, (err2, stdout2, stderr2) => {
-							if (err2.length != undefined) {
-								robot.log(`Error2a: ${err2}`);
-								return;
-							} else if (stderr2.length > 0) {
-								robot.log(`Error2b: ${stderr2}`);
-								return;
-							} else if (stdout2.toString().includes('info Color legend :')) {
-								const matcher = new RegExp('(Package)([\\S\\s]*)(?=Done in)');
-								let result = matcher.exec(stdout2);
-								robot.log('Found outdated packages');
-								let packages = result[0].split(/\r?\n/);
-								packages.shift();
-								packages.pop();
-								let packagelist = [];
-								packages.forEach(element => {
-									let data = element.replace(/  +/g, ' ');
-									data = data.split(' ');
-									let stuff = {
-										name: data[0],
-										installed: data[1],
-										wanted: data[2],
-										latest: data[3],
-										type: data[4],
-										url: `[${data[0]}](${data[5]})`
-									};
-									packagelist.push(stuff);
-								});
-								let val = '';
-								val += `We found **${packagelist.length}** outdated package(s) in this Pull Request.\r\n\r\n`;
-								val += arrayToTable(packagelist, ['Name of Package', 'Version Installed', 'Version Wanted', 'Latest Version', 'Type of Package', 'URL'], 'center');
-								val += '\r\n If you would like the bot to **create a commit** with the **updated** packages, comment `\\update packages` in this Pull Request.';
-								context.github.issues.createComment(context.issue({
-									body: val
-								}));
-								robot.log('Posted on GitHub');
-							} else {
-								robot.log('Yaay! Everything is up to date. :clap:');
-								context.github.issues.createComment(context.issue({
-									body: 'Yaay! Everything is up to date. :clap:'
-								}));
-							}
-						});
+						if(shouldUpdate==false){
+							robot.log('Checking for outdated packages');
+							exec('yarn outdated', {
+								cwd: pathDirectory
+							}, (err2, stdout2, stderr2) => {
+								if (err2.length != undefined) {
+									robot.log(`Error2a: ${err2}`);
+									return;
+								} else if (stderr2.length > 0) {
+									robot.log(`Error2b: ${stderr2}`);
+									return;
+								} else if (stdout2.toString().includes('info Color legend :')) {
+									const matcher = new RegExp('(Package)([\\S\\s]*)(?=Done in)');
+									let result = matcher.exec(stdout2);
+									robot.log('Found outdated packages');
+									let packages = result[0].split(/\r?\n/);
+									packages.shift();
+									packages.pop();
+									let packagelist = [];
+									packages.forEach(element => {
+										let data = element.replace(/  +/g, ' ');
+										data = data.split(' ');
+										let stuff = {
+											name: data[0],
+											installed: data[1],
+											wanted: data[2],
+											latest: data[3],
+											type: data[4],
+											url: `[${data[0]}](${data[5]})`
+										};
+										packagelist.push(stuff);
+									});
+									let val = '';
+									val += `We found **${packagelist.length}** outdated package(s) in this Pull Request.\r\n\r\n`;
+									val += arrayToTable(packagelist, ['Name of Package', 'Version Installed', 'Version Wanted', 'Latest Version', 'Type of Package', 'URL'], 'center');
+									// val += '\r\n If you would like the bot to **create a commit** with the **updated** packages, comment `/update-packages` in this Pull Request.';
+									context.github.issues.createComment(context.issue({
+										body: val
+									}));
+									robot.log('Posted on GitHub');
+								} else {
+									robot.log('Yaay! Everything is up to date. :clap:');
+									context.github.issues.createComment(context.issue({
+										body: 'Yaay! Everything is up to date. :clap:'
+									}));
+								}
+							});
+						}
+						else{
+							robot.log('Updating Packages');
+							exec('yarn upgrade', {
+								cwd: pathDirectory
+							}, (err2, stdout2, stderr2) => {
+								if (err2.length != undefined) {
+									robot.log(`Error2a: ${err2}`);
+									return;
+								} else if (stderr2.length > 0) {
+									robot.log(`Error2b: ${stderr2}`);
+									return;
+								} else if (stdout2.toString().includes('success Saved lockfile.')) {
+									robot.log('Uploading new packages');
+									
+									let val = '';
+									
+									context.github.issues.createComment(context.issue({
+										body: val
+									}));
+									robot.log('Uploaded to GitHub');
+								}
+							});
+						}
 					});
 				}).catch((err) => {
 					robot.log(err);
